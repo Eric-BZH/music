@@ -1,6 +1,6 @@
 // Service worker de l'accordeur BombardeLab.
 // Changer CACHE_VERSION à chaque mise en ligne d'une nouvelle version de l'appli.
-const CACHE_VERSION = 'accordeur-v2';
+const CACHE_VERSION = 'accordeur-v3';
 const FONT_CACHE = 'accordeur-fonts';
 
 const APP_SHELL = [
@@ -15,8 +15,11 @@ const APP_SHELL = [
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_VERSION).then(cache =>
-            // Un fichier manquant ne doit pas bloquer l'installation
-            Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => {})))
+            // Un fichier manquant ne doit pas bloquer l'installation, et on ne garde
+            // jamais la page de connexion à la place de l'accordeur
+            Promise.all(APP_SHELL.map(url => fetch(url).then(res => {
+                if (cacheable(res)) return cache.put(url, res);
+            }).catch(() => {})))
         ).then(() => self.skipWaiting())
     );
 });

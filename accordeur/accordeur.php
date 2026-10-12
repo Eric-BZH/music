@@ -1,3 +1,9 @@
+<?php
+// Accès réservé aux élèves connectés (cookie student_auth posé par /cours/_auth/check-code.php).
+// Sinon, guard.php redirige vers /cours/index.php.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/cours/_auth/guard.php';
+require_any_group();
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
