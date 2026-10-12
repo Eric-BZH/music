@@ -1,6 +1,6 @@
 // Service worker de l'accordeur BombardeLab.
 // Changer CACHE_VERSION à chaque mise en ligne d'une nouvelle version de l'appli.
-const CACHE_VERSION = 'accordeur-v3';
+const CACHE_VERSION = 'accordeur-v4';
 const FONT_CACHE = 'accordeur-fonts';
 
 const APP_SHELL = [
