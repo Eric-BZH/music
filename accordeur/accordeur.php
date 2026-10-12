@@ -1,9 +1,3 @@
-<?php
-// Accès réservé aux élèves connectés (cookie student_auth posé par /cours/_auth/check-code.php).
-// Sinon, guard.php redirige vers /cours/index.php.
-require_once $_SERVER['DOCUMENT_ROOT'] . '/cours/_auth/guard.php';
-require_any_group();
-?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -315,14 +309,7 @@ require_any_group();
         <div class="setting-item" id="strobe-smoothing-container"><div class="setting-label"><span data-i18n="strobe_smooth_label">Lissage Stroboscope</span><div><span id="strobe-smooth-val" style="font-weight:bold; font-family:monospace; color:var(--text-muted);">83 ms</span><button class="reset-param-btn" id="reset-strobe-smoothing" title="Défaut">↺</button></div></div><div class="custom-slider-wrapper"><input type="range" id="strobe-smoothing-slider" min="0" max="99" step="1" value="80"></div></div>
         <div class="setting-item"><div class="setting-label"><span data-i18n="countdown_label">Décompte calibrage</span><div><span id="countdown-val">3s</span><button class="reset-param-btn" id="reset-countdown" title="Défaut">↺</button></div></div><div class="custom-slider-wrapper"><input type="range" id="countdown-slider" min="0" max="10" step="1" value="3"></div></div>
         <div class="setting-item"><div class="setting-label"><span data-i18n="calib_duration_label">Durée calibrage</span><div><span id="calib-duration-val">3s</span><button class="reset-param-btn" id="reset-calib-duration" title="Défaut">↺</button></div></div><div class="custom-slider-wrapper"><input type="range" id="calib-duration-slider" min="1" max="10" step="0.5" value="3"></div></div>
-        
-        <div class="setting-item" style="margin-top: 20px; border-top: 1px solid var(--panel-border); padding-top: 20px;">
-            <a href="/cours/_auth/logout.php" style="text-decoration:none;">
-                <button class="rec-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:8px;">
-                    Déconnexion
-                </button>
-            </a>
-        </div>
+
     </div>
 
     <div id="help-panel" class="side-panel">
