@@ -493,7 +493,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.2';
+        const APP_VERSION = '0.1.3';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
@@ -628,7 +628,14 @@
             dataArray = new Float32Array(analyser.fftSize);
         }
 
+        // iOS (Safari 16.4+) : tant que le mode audio reste celui d'un appel (micro),
+        // la lecture sort à faible volume. On choisit le mode selon l'usage.
+        function setAudioSessionType(type) {
+            try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (e) {}
+        }
+
         async function startMic() {
+            setAudioSessionType('play-and-record');
             if (!audioContext) initAudio();
             if (audioContext.state === 'suspended') await audioContext.resume();
             try {
@@ -1267,6 +1274,25 @@ if (pendingTemperamentMode) {
             }
         });
 
+        // Le micro est capté sans gain automatique (pour la justesse de l'accordeur) :
+        // l'enregistrement est souvent faible. On le remonte pour que le pic atteigne
+        // environ -1 dB, sans dépasser x20 pour ne pas faire ressortir le souffle d'un silence.
+        function normalizeBuffer(buffer, targetPeak = 0.89, maxGain = 20) {
+            let peak = 0;
+            for (let c = 0; c < buffer.numberOfChannels; c++) {
+                const d = buffer.getChannelData(c);
+                for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+            }
+            if (peak === 0) return 1;
+            const gain = Math.min(targetPeak / peak, maxGain);
+            if (gain <= 1) return 1;
+            for (let c = 0; c < buffer.numberOfChannels; c++) {
+                const d = buffer.getChannelData(c);
+                for (let i = 0; i < d.length; i++) d[i] *= gain;
+            }
+            return gain;
+        }
+
         // Event Listeners
         if (btnRecord) btnRecord.addEventListener('click', async () => {
             if (isPlayingRecorded) return;
@@ -1293,6 +1319,7 @@ if (pendingTemperamentMode) {
                     }
                     drawStatsGraph();
 
+                    normalizeBuffer(playerAudioBuffer);
                     cropStartTime = 0; cropEndTime = playerAudioBuffer.duration;
                     stopMic(); 
                     controlsContainer.style.display = 'none'; playerContainer.style.display = 'flex';
@@ -1344,6 +1371,7 @@ if (pendingTemperamentMode) {
         if(btnPlayerPlay) btnPlayerPlay.addEventListener('click', () => { if (!playerAudioBuffer || !audioContext) return; if (isPlayingRecorded) stopPlayback(); else startPlayback(cropStartTime); });
 
         function startPlayback(startTime) {
+            if (!micStream) setAudioSessionType('playback');
             audioPlayerSource = audioContext.createBufferSource(); audioPlayerSource.buffer = playerAudioBuffer;
             audioPlayerSource.connect(analyser); audioPlayerSource.connect(audioContext.destination);
             audioPlayerSource.onended = () => stopPlayback();
