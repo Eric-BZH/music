@@ -498,7 +498,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.6';
+        const APP_VERSION = '0.1.7';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
@@ -1559,12 +1559,27 @@ if (pendingTemperamentMode) {
             }
             return 0;
         }
+        // Rend le clic plus fort : met les deux sons au même niveau (clic2 était 5 dB plus bas que clic1),
+        // puis applique une saturation douce (tanh) qui augmente le volume perçu sans dépasser le maximum.
+        // Gain mesuré : environ +6 dB pour clic1, +11 dB pour clic2.
+        function boostClick(buffer, drive = 3) {
+            let peak = 0;
+            for (let c = 0; c < buffer.numberOfChannels; c++) for (const v of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+            if (peak === 0) return;
+            const norm = 0.98 / Math.tanh(drive);
+            for (let c = 0; c < buffer.numberOfChannels; c++) {
+                const d = buffer.getChannelData(c);
+                for (let i = 0; i < d.length; i++) d[i] = Math.tanh(drive * d[i] / peak) * norm;
+            }
+        }
         function loadMetroSamples() {
             if (metroSamplesPromise) return metroSamplesPromise;
             const load = async (url) => {
                 const res = await fetch(url);
                 const buffer = await audioContext.decodeAudioData(await res.arrayBuffer());
-                return { buffer, offset: findOnset(buffer) };
+                const offset = findOnset(buffer);
+                boostClick(buffer);
+                return { buffer, offset };
             };
             metroSamplesPromise = Promise.all([load('sons/clic1.wav'), load('sons/clic2.wav')])
                 .then(([accent, normal]) => { metroSamples.accent = accent; metroSamples.normal = normal; })
