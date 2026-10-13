@@ -1,6 +1,6 @@
 // Service worker de l'accordeur BombardeLab.
 // À chaque mise en ligne, mettre ici le même numéro que APP_VERSION dans accordeur.php.
-const CACHE_VERSION = 'accordeur-0.1.4';
+const CACHE_VERSION = 'accordeur-0.1.5';
 const FONT_CACHE = 'accordeur-fonts';
 
 const APP_SHELL = [
