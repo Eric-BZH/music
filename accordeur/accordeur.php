@@ -498,7 +498,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.5';
+        const APP_VERSION = '0.1.6';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
@@ -1505,7 +1505,7 @@ if (pendingTemperamentMode) {
         });
 
         // Metronome listeners
-        openMetroBtn.addEventListener('click', (e) => { e.stopPropagation(); metroModal.style.display = 'flex'; });
+        openMetroBtn.addEventListener('click', (e) => { e.stopPropagation(); metroModal.style.display = 'flex'; if (audioContext) loadMetroSamples(); });
         btnMetroClose.addEventListener('click', () => metroModal.style.display = 'none');
         document.querySelectorAll('.metro-opt-btn').forEach(btn => btn.addEventListener('click', () => {
             btn.classList.toggle('active');
@@ -1547,10 +1547,47 @@ if (pendingTemperamentMode) {
             input.addEventListener('click', (e) => e.stopPropagation());
         });
         
-        // Clic du métronome (bloc de bois) joué à l'instant t ; le premier temps de la mesure est plus aigu.
-        // L'enveloppe est calée sur t (le clic est programmé jusqu'à 100 ms à l'avance).
-        let metroNoiseBuffer = null;
+        // Sons du métronome : sons/clic1.wav pour le premier temps, sons/clic2.wav pour les autres.
+        // Chargés une fois ; « offset » saute le silence en tête de fichier pour que le clic tombe pile sur le temps.
+        const metroSamples = { accent: null, normal: null };
+        let metroSamplesPromise = null;
+        function findOnset(buffer) {
+            let peak = 0;
+            for (let c = 0; c < buffer.numberOfChannels; c++) for (const v of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+            for (let i = 0; i < buffer.length; i++) {
+                for (let c = 0; c < buffer.numberOfChannels; c++) if (Math.abs(buffer.getChannelData(c)[i]) > peak * 0.01) return i / buffer.sampleRate;
+            }
+            return 0;
+        }
+        function loadMetroSamples() {
+            if (metroSamplesPromise) return metroSamplesPromise;
+            const load = async (url) => {
+                const res = await fetch(url);
+                const buffer = await audioContext.decodeAudioData(await res.arrayBuffer());
+                return { buffer, offset: findOnset(buffer) };
+            };
+            metroSamplesPromise = Promise.all([load('sons/clic1.wav'), load('sons/clic2.wav')])
+                .then(([accent, normal]) => { metroSamples.accent = accent; metroSamples.normal = normal; })
+                .catch(e => { console.warn('Sons du métronome non chargés, son de secours utilisé :', e); metroSamplesPromise = null; });
+            return metroSamplesPromise;
+        }
+
+        // Clic du métronome joué à l'instant t (programmé jusqu'à 100 ms à l'avance).
         function playMetroClick(t, accent) {
+            const sample = accent ? metroSamples.accent : metroSamples.normal;
+            if (sample) {
+                const src = audioContext.createBufferSource();
+                src.buffer = sample.buffer;
+                src.connect(audioContext.destination);
+                src.start(t, sample.offset);
+                return;
+            }
+            playSynthClick(t, accent);
+        }
+
+        // Son de secours (bloc de bois synthétisé) si les fichiers n'ont pas pu être chargés.
+        let metroNoiseBuffer = null;
+        function playSynthClick(t, accent) {
             const ctx = audioContext;
             const f = accent ? 1500 : 1000; // le premier temps sonne une quinte au-dessus
             // Corps : sinus dont la hauteur descend vite
@@ -1605,10 +1642,12 @@ if (pendingTemperamentMode) {
             metroTimerID = setTimeout(metroScheduler, 25);
         }
 
-        btnMetroPlay.addEventListener('click', () => {
+        btnMetroPlay.addEventListener('click', async () => {
             if (!audioContext) initAudio(); if (audioContext.state === 'suspended') audioContext.resume();
             metroIsPlaying = !metroIsPlaying;
             if (metroIsPlaying) {
+                await loadMetroSamples();
+                if (!metroIsPlaying) return;
                 btnMetroPlay.innerHTML = '<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
                 btnMetroPlay.classList.add('playing'); metroNextNoteTime = audioContext.currentTime + 0.05; metroBeatIndex = 0; metroScheduler();
             } else {

@@ -1,6 +1,6 @@
 // Service worker de l'accordeur BombardeLab.
 // À chaque mise en ligne, mettre ici le même numéro que APP_VERSION dans accordeur.php.
-const CACHE_VERSION = 'accordeur-0.1.5';
+const CACHE_VERSION = 'accordeur-0.1.6';
 const FONT_CACHE = 'accordeur-fonts';
 
 const APP_SHELL = [
@@ -9,7 +9,9 @@ const APP_SHELL = [
     './logo-anim.gif',
     './icons/icon-192.png',
     './icons/icon-512.png',
-    './icons/apple-touch-icon.png'
+    './icons/apple-touch-icon.png',
+    './sons/clic1.wav',
+    './sons/clic2.wav'
 ];
 
 self.addEventListener('install', event => {
