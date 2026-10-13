@@ -245,8 +245,9 @@
         .metro-btn-circle svg { display: block; }
         .metro-btn-circle.playing { background: var(--danger); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
         .metro-options { display: flex; justify-content: space-around; background: var(--input-bg); padding: 8px; border-radius: 16px; }
-        .metro-opt-btn { background: transparent; color: var(--text-muted); padding: 8px; flex: 1; font-size: 0.9rem; }
-        .metro-opt-btn.active { background: var(--panel-bg); color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 10px; font-weight: 700; }
+        .metro-beats { margin-top: 8px; }
+        .metro-opt-btn, .metro-beats-btn { background: transparent; color: var(--text-muted); padding: 8px; flex: 1; font-size: 0.9rem; }
+        .metro-opt-btn.active, .metro-beats-btn.active { background: var(--panel-bg); color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 10px; font-weight: 700; }
         .metro-tap-btn { background: var(--input-bg); color: var(--text-main); border: 2px solid var(--panel-border); font-weight: 700; padding: 12px 24px; border-radius: 16px; font-size: 1rem; width: 100%; transition: all 0.1s; }
         .metro-tap-btn:active { background: var(--accent); color: white; transform: scale(0.98); }
         .side-panel { background: rgba(255, 255, 255, 0.9) !important; }
@@ -352,6 +353,10 @@
                     <button class="metro-opt-btn active" id="btn-metro-audio" data-mode="audio">Son</button>
                     <button class="metro-opt-btn active" id="btn-metro-visual" data-mode="visual">Visuel</button>
                     <button class="metro-opt-btn" id="btn-metro-flash" data-mode="flash">Flash</button>
+                </div>
+                <div class="metro-options metro-beats" id="metro-beats">
+                    <button class="metro-beats-btn" data-beats="3">3 temps</button>
+                    <button class="metro-beats-btn active" data-beats="4">4 temps</button>
                 </div>
             </div>
             <button id="metro-close-btn" style="width: 100%; margin-top: 20px; background:var(--input-bg); color: var(--text-muted);">Fermer</button>
@@ -493,7 +498,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.4';
+        const APP_VERSION = '0.1.5';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
@@ -587,6 +592,8 @@
         let metroBpm = 90;
         let metroIsPlaying = false;
         let metroModes = { audio: true, visual: true, flash: false };
+        let metroBeats = 4;       // temps par mesure (3 ou 4)
+        let metroBeatIndex = 0;   // 0 = premier temps de la mesure (accentué)
         let metroNextNoteTime = 0.0;
         let metroTimerID = null;
         let metroLookahead = 25.0; 
@@ -749,7 +756,8 @@
                 defaultTemperament: activeTemp ? activeTemp.dataset.val : 'equal', defaultKey: settingsDefaultKey,
                 defaultNotation: activeLang ? activeLang.dataset.val : 'fr',
                 metroBpm: metroBpm,
-                metroModes: metroModes
+                metroModes: metroModes,
+                metroBeats: metroBeats
             };
             localStorage.setItem('avelpitch_settings', JSON.stringify(settings));
         }
@@ -784,6 +792,7 @@
             if (s.defaultTemperament !== undefined) { updateOptionUI('#default-temp-switcher', s.defaultTemperament); setTemperamentMode(s.defaultTemperament, s.defaultKey); }
             if (s.defaultNotation !== undefined) { updateOptionUI('#default-lang-switcher', s.defaultNotation); currentLang = s.defaultNotation; updateInterfaceText(); refreshStatsUI(false); populateKeySelectionModal(); saveSettings(); }
             if (s.metroBpm !== undefined) { metroBpm = s.metroBpm; bpmDisplay.textContent = metroBpm; }
+            if (s.metroBeats !== undefined) setMetroBeats(s.metroBeats);
             if (s.metroModes !== undefined) {
                 metroModes = s.metroModes;
                 // Update buttons UI
@@ -1538,24 +1547,49 @@ if (pendingTemperamentMode) {
             input.addEventListener('click', (e) => e.stopPropagation());
         });
         
-        // Clic du métronome joué à l'instant t. L'enveloppe est entièrement calée sur t :
-        // avant, la décroissance démarrait au moment de la programmation (jusqu'à 100 ms plus tôt)
-        // et le clic était déjà très atténué quand il sonnait.
-        // Onde carrée vers 1,6 kHz : plus d'énergie et des harmoniques bien rendues par un haut-parleur de téléphone.
-        function playMetroClick(t) {
-            const osc = audioContext.createOscillator(); const g = audioContext.createGain();
-            osc.type = 'square'; osc.frequency.value = 1600;
+        // Clic du métronome (bloc de bois) joué à l'instant t ; le premier temps de la mesure est plus aigu.
+        // L'enveloppe est calée sur t (le clic est programmé jusqu'à 100 ms à l'avance).
+        let metroNoiseBuffer = null;
+        function playMetroClick(t, accent) {
+            const ctx = audioContext;
+            const f = accent ? 1500 : 1000; // le premier temps sonne une quinte au-dessus
+            // Corps : sinus dont la hauteur descend vite
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.frequency.setValueAtTime(f, t);
+            osc.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.04);
             g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(0.9, t + 0.002);
-            g.gain.setValueAtTime(0.9, t + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-            osc.connect(g); g.connect(audioContext.destination);
-            osc.start(t); osc.stop(t + 0.1);
+            g.gain.linearRampToValueAtTime(0.8, t + 0.001);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(t); osc.stop(t + 0.09);
+            // Attaque : souffle très court filtré
+            if (!metroNoiseBuffer || metroNoiseBuffer.sampleRate !== ctx.sampleRate) {
+                const len = Math.floor(ctx.sampleRate * 0.015);
+                metroNoiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+                const d = metroNoiseBuffer.getChannelData(0);
+                for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+            }
+            const n = ctx.createBufferSource(); n.buffer = metroNoiseBuffer;
+            const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * 2; bp.Q.value = 1.2;
+            const ng = ctx.createGain();
+            ng.gain.setValueAtTime(0.4, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+            n.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
+            n.start(t);
         }
+
+        function setMetroBeats(beats) {
+            metroBeats = beats === 3 ? 3 : 4;
+            metroBeatIndex %= metroBeats;
+            document.querySelectorAll('.metro-beats-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.beats) === metroBeats));
+        }
+        document.querySelectorAll('.metro-beats-btn').forEach(btn => btn.addEventListener('click', () => {
+            setMetroBeats(parseInt(btn.dataset.beats));
+            saveSettings();
+        }));
 
         function metroScheduler() {
             while (metroNextNoteTime < audioContext.currentTime + 0.1) {
-                if (metroModes.audio) playMetroClick(metroNextNoteTime);
+                if (metroModes.audio) playMetroClick(metroNextNoteTime, metroBeatIndex === 0);
                 if (metroModes.visual) {
                     setTimeout(() => { document.body.classList.add('metro-flash'); setTimeout(() => document.body.classList.remove('metro-flash'), 150); }, Math.max(0, (metroNextNoteTime - audioContext.currentTime) * 1000));
                 }
@@ -1566,6 +1600,7 @@ if (pendingTemperamentMode) {
                     }, Math.max(0, (metroNextNoteTime - audioContext.currentTime) * 1000));
                 }
                 metroNextNoteTime += 60.0 / metroBpm;
+                metroBeatIndex = (metroBeatIndex + 1) % metroBeats;
             }
             metroTimerID = setTimeout(metroScheduler, 25);
         }
@@ -1575,7 +1610,7 @@ if (pendingTemperamentMode) {
             metroIsPlaying = !metroIsPlaying;
             if (metroIsPlaying) {
                 btnMetroPlay.innerHTML = '<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
-                btnMetroPlay.classList.add('playing'); metroNextNoteTime = audioContext.currentTime + 0.05; metroScheduler();
+                btnMetroPlay.classList.add('playing'); metroNextNoteTime = audioContext.currentTime + 0.05; metroBeatIndex = 0; metroScheduler();
             } else {
                 btnMetroPlay.innerHTML = '<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
                 btnMetroPlay.classList.remove('playing'); clearTimeout(metroTimerID);
