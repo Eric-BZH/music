@@ -27,12 +27,13 @@
             100% { transform: translate(0px, 0px) scale(1); }
         }
         /* Bande pleine sous la barre d'état (heure, batterie) quand l'appli est installée :
-           cache les halos flous du fond qui passeraient derrière l'heure */
+           cache les halos flous du fond qui passeraient derrière l'heure.
+           Les halos violet et vert sont placés au milieu de l'écran pour ne pas flouter le haut. */
         .status-bar-bg { position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background-color: var(--bg-color); z-index: 5000; pointer-events: none; transition: background-color 0.4s ease; }
         .blob-bg { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; z-index: -10; pointer-events: none; }
         .blob { position: absolute; border-radius: 50%; mix-blend-mode: multiply; filter: blur(40px); opacity: 0.4; animation: blob 10s infinite; }
-        .blob-1 { top: 0; left: -1rem; width: 18rem; height: 18rem; background-color: rgb(196, 181, 253); }
-        .blob-2 { top: 0; right: -1rem; width: 18rem; height: 18rem; background-color: rgb(110, 231, 183); animation-delay: 2s; }
+        .blob-1 { top: 35vh; left: -1rem; width: 18rem; height: 18rem; background-color: rgb(196, 181, 253); }
+        .blob-2 { top: 35vh; right: -1rem; width: 18rem; height: 18rem; background-color: rgb(110, 231, 183); animation-delay: 2s; }
         .blob-3 { bottom: -2rem; left: 5rem; width: 18rem; height: 18rem; background-color: rgb(253, 186, 116); animation-delay: 4s; }
         [data-theme="dark"] .blob { mix-blend-mode: screen; opacity: 0.15; }
 
@@ -102,7 +103,7 @@
             align-items: center; 
             height: 100vh; 
             padding-top: max(20px, env(safe-area-inset-top));
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            padding-bottom: max(8px, calc(env(safe-area-inset-bottom) - 16px));
             padding-left: max(20px, env(safe-area-inset-left));
             padding-right: max(20px, env(safe-area-inset-right));
             overflow: hidden; 
@@ -196,7 +197,7 @@
         [data-theme="dark"] #start-overlay { background: rgba(15, 23, 42, 0.6); }
         #start-btn { background: linear-gradient(135deg, #10b981, #059669); color: white; font-size: 1.2rem; padding: 18px 48px; border-radius: 24px; font-weight: 800; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4); border: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         #start-btn:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px rgba(16, 185, 129, 0.5); }
-        .footer-signature { margin-top: auto; padding: 10px 20px; font-size: 0.85rem; color: var(--text-muted); text-align: center; font-weight: 600; opacity: 0.7; flex-shrink: 0; }
+        .footer-signature { margin-top: auto; padding: 8px 20px 0; font-size: 0.85rem; color: var(--text-muted); text-align: center; font-weight: 600; opacity: 0.7; flex-shrink: 0; }
         .side-panel { position: fixed; top: 0; right: -360px; width: 340px; height: 100%; background: var(--panel-bg); border-top-left-radius: 32px; border-bottom-left-radius: 32px; box-shadow: -10px 0 40px rgba(0,0,0,0.1); z-index: 2000; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 32px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
         .side-panel.open { right: 0; }
         .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
@@ -492,7 +493,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.1';
+        const APP_VERSION = '0.1.2';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
