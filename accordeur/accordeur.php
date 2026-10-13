@@ -26,6 +26,9 @@
             66% { transform: translate(-20px, 20px) scale(0.9); }
             100% { transform: translate(0px, 0px) scale(1); }
         }
+        /* Bande pleine sous la barre d'état (heure, batterie) quand l'appli est installée :
+           cache les halos flous du fond qui passeraient derrière l'heure */
+        .status-bar-bg { position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background-color: var(--bg-color); z-index: 5000; pointer-events: none; transition: background-color 0.4s ease; }
         .blob-bg { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; z-index: -10; pointer-events: none; }
         .blob { position: absolute; border-radius: 50%; mix-blend-mode: multiply; filter: blur(40px); opacity: 0.4; animation: blob 10s infinite; }
         .blob-1 { top: 0; left: -1rem; width: 18rem; height: 18rem; background-color: rgb(196, 181, 253); }
@@ -260,6 +263,7 @@
     </style>
 </head>
 <body data-theme="light">
+    <div class="status-bar-bg"></div>
     <div class="blob-bg">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
@@ -488,7 +492,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.0';
+        const APP_VERSION = '0.1.1';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
