@@ -493,7 +493,7 @@
         const btnPlus = document.getElementById('btn-plus');
         // Version de l'appli, affichée dans les paramètres.
         // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
-        const APP_VERSION = '0.1.3';
+        const APP_VERSION = '0.1.4';
         document.getElementById('app-version').textContent = APP_VERSION;
 
         // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
@@ -1538,13 +1538,24 @@ if (pendingTemperamentMode) {
             input.addEventListener('click', (e) => e.stopPropagation());
         });
         
+        // Clic du métronome joué à l'instant t. L'enveloppe est entièrement calée sur t :
+        // avant, la décroissance démarrait au moment de la programmation (jusqu'à 100 ms plus tôt)
+        // et le clic était déjà très atténué quand il sonnait.
+        // Onde carrée vers 1,6 kHz : plus d'énergie et des harmoniques bien rendues par un haut-parleur de téléphone.
+        function playMetroClick(t) {
+            const osc = audioContext.createOscillator(); const g = audioContext.createGain();
+            osc.type = 'square'; osc.frequency.value = 1600;
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(0.9, t + 0.002);
+            g.gain.setValueAtTime(0.9, t + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+            osc.connect(g); g.connect(audioContext.destination);
+            osc.start(t); osc.stop(t + 0.1);
+        }
+
         function metroScheduler() {
             while (metroNextNoteTime < audioContext.currentTime + 0.1) {
-                if (metroModes.audio) {
-                    const osc = audioContext.createOscillator(); const g = audioContext.createGain();
-                    osc.frequency.value = 1000; g.gain.value = 2.0; g.gain.exponentialRampToValueAtTime(0.001, metroNextNoteTime + 0.1);
-                    osc.connect(g); g.connect(audioContext.destination); osc.start(metroNextNoteTime); osc.stop(metroNextNoteTime + 0.1);
-                }
+                if (metroModes.audio) playMetroClick(metroNextNoteTime);
                 if (metroModes.visual) {
                     setTimeout(() => { document.body.classList.add('metro-flash'); setTimeout(() => document.body.classList.remove('metro-flash'), 150); }, Math.max(0, (metroNextNoteTime - audioContext.currentTime) * 1000));
                 }
