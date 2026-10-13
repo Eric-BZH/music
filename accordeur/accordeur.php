@@ -201,6 +201,7 @@
         .panel-header { display: flex; justify-content: space-between; align-items: center; color: var(--text-main); font-size: 1.5rem; font-weight: 800; border-bottom: none; margin-bottom: 20px; }
         .close-panel-btn { background: transparent; border: none; font-size: 2rem; color: var(--text-muted); cursor: pointer; }
         .setting-item { display: flex; flex-direction: column; gap: 8px; }
+        .app-version { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--panel-border); text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
         .setting-label { font-weight: 600; margin-bottom: 8px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
         .reset-param-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 0 5px; transition: color 0.2s; line-height: 1; }
         .reset-param-btn:hover { color: var(--accent); }
@@ -310,6 +311,7 @@
         <div class="setting-item"><div class="setting-label"><span data-i18n="countdown_label">Décompte calibrage</span><div><span id="countdown-val">3s</span><button class="reset-param-btn" id="reset-countdown" title="Défaut">↺</button></div></div><div class="custom-slider-wrapper"><input type="range" id="countdown-slider" min="0" max="10" step="1" value="3"></div></div>
         <div class="setting-item"><div class="setting-label"><span data-i18n="calib_duration_label">Durée calibrage</span><div><span id="calib-duration-val">3s</span><button class="reset-param-btn" id="reset-calib-duration" title="Défaut">↺</button></div></div><div class="custom-slider-wrapper"><input type="range" id="calib-duration-slider" min="1" max="10" step="0.5" value="3"></div></div>
 
+        <div class="app-version">Version <span id="app-version"></span></div>
     </div>
 
     <div id="help-panel" class="side-panel">
@@ -484,6 +486,25 @@
         const btnResetStats = document.getElementById('btn-reset-stats');
         const btnMinus = document.getElementById('btn-minus');
         const btnPlus = document.getElementById('btn-plus');
+        // Version de l'appli, affichée dans les paramètres.
+        // À chaque mise en ligne, l'augmenter ici ET dans CACHE_VERSION de sw.js.
+        const APP_VERSION = '0.1.0';
+        document.getElementById('app-version').textContent = APP_VERSION;
+
+        // Empêche le téléphone de se mettre en veille tant que l'accordeur tourne.
+        // Le navigateur libère le verrou quand l'appli passe en arrière-plan :
+        // il est redemandé au retour (voir visibilitychange).
+        let wakeLock = null;
+        async function requestWakeLock() {
+            if (!('wakeLock' in navigator) || document.hidden) return;
+            if (wakeLock && !wakeLock.released) return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (e) {
+                console.warn('Maintien de l\'écran allumé impossible :', e);
+            }
+        }
+
         const startBtn = document.getElementById('start-btn');
         const countdownSlider = document.getElementById('countdown-slider');
         const countdownVal = document.getElementById('countdown-val');
@@ -1217,6 +1238,7 @@ if (pendingTemperamentMode) {
                 
                 // On ne relance que si l'accordeur était en train de tourner avant
                 if (isRunning) {
+                    requestWakeLock();
                     // 1. On réveille le contexte audio
                     if (audioContext && audioContext.state === 'suspended') {
                         try { await audioContext.resume(); } catch(e) {}
@@ -1626,6 +1648,7 @@ startBtn.addEventListener('click', async () => {
         resizeCanvas(); 
         startAudioProcessing(); 
         isRunning = true; 
+        requestWakeLock();
     } 
     catch (e) { 
         console.error("Erreur", e); 
